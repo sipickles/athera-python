@@ -9,12 +9,13 @@ route_part     = "/compute/jobs/{job_id}/parts/{part_id}"
 
 def make_job_request(user_id, group_id, app_id, file_path, name, 
                      frame_start, frame_finish, frame_increment, region, arguments,
-                     part_count=1, node_count=1):
+                     profile_id="", part_count=1, node_count=1):
     return {
         "computeData" : {
             "userID": user_id,
             "groupID": group_id,
             "appID": app_id,
+            "profileID": profile_id,
             "filePath": file_path,
             "name": name,
             "frameRange": {

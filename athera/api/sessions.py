@@ -13,11 +13,12 @@ completed_status = ["TERMINATING", "TERMINATED"]
 
 
 
-def make_session_request(user_id, group_id, app_id, region, display_width, display_height, display_dpi, name):
+def make_session_request(user_id, group_id, app_id, region, display_width, display_height, display_dpi, name, profile_id=""):
     return {
         "user_id": user_id,
         "group_id": group_id,
         "app_id" : app_id,
+        "profile_id" : profile_id,
         "region": region,
         "display": {
             "width": display_width,
