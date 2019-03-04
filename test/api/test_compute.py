@@ -308,6 +308,9 @@ class ComputeTest(unittest.TestCase):
         wait_period = 10
 
         while timeout:
+            time.sleep(wait_period)
+            timeout -= wait_period
+            
             response = compute.get_job(
                 environment.ATHERA_API_TEST_BASE_URL,
                 environment.ATHERA_API_TEST_GROUP_ID,
@@ -322,8 +325,6 @@ class ComputeTest(unittest.TestCase):
             if job_status == desired_status:
                 return None
             
-            timeout -= wait_period
-            time.sleep(wait_period)
 
         return "Waited 100 seconds for job to reach status {}, but job has status {}".format(desired_status, job_status)
         

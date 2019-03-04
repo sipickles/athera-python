@@ -124,6 +124,20 @@ class SessionsTest(unittest.TestCase):
             1920, 1080, 72, 
             "APITest", 
         )
+        
+        # We tolerate 1 HOST_FAILURE, as we accept we'll never be 100% successful provisioning a host
+        host_failure_limit = 1
+        host_failure_count = 0
+        while host_failure_count <= host_failure_limit:
+            retry_requested = self.start_and_stop_session(payload)
+            if not retry_requested:
+                break
+
+            print("Launch attempt {} of {} failed".format(host_failure_count, host_failure_limit))
+            host_failure_count += 1
+
+    def start_and_stop_session(self, payload):
+        """ Returns True if retry is requested. Callee decides if retry is permitted """
         response = sessions.start_session(
             environment.ATHERA_API_TEST_BASE_URL,
             environment.ATHERA_API_TEST_GROUP_ID,
@@ -138,6 +152,7 @@ class SessionsTest(unittest.TestCase):
         # Wait for ready
         timeout = 600
         wait_period = 10
+
         while timeout:
             response = sessions.get_session(
                 environment.ATHERA_API_TEST_BASE_URL,
@@ -148,6 +163,12 @@ class SessionsTest(unittest.TestCase):
             self.assertEqual(response.status_code, codes.ok)
             data = response.json()
             session_status = data['status'] 
+
+            # Special case for first host failure
+            if session_status == 'HOST_FAILURE':
+                # For host failures, we request a retry
+                return True
+
             self.assertNotIn(session_status, sessions.failed_status)
             self.assertNotIn(session_status, sessions.completed_status)
             if session_status in sessions.ready_status:
@@ -157,6 +178,7 @@ class SessionsTest(unittest.TestCase):
             time.sleep(wait_period)
             timeout -= wait_period
 
+        # Successful launch so close session
         self.assertGreater(timeout, 0)
         response = sessions.stop_session(
             environment.ATHERA_API_TEST_BASE_URL,
@@ -165,6 +187,9 @@ class SessionsTest(unittest.TestCase):
             session_id,
         )
         self.assertEqual(response.status_code, codes.ok)
+
+        # Success, no retry required
+        return False
 
     def test_start_session_incomplete_payload(self):
         """ Negative test - Its a bad request"""
