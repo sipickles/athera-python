@@ -202,7 +202,7 @@ class ComputeTest(unittest.TestCase):
                 environment.ATHERA_API_TEST_BASE_URL,
                 environment.ATHERA_API_TEST_GROUP_ID,
                 self.token,
-                environment.ATHERA_API_TEST_JOB_ID,
+                job_id,
             )
             self.assertEqual(response.status_code, codes.ok)
             data = response.json()
