@@ -84,13 +84,13 @@ class OAuthClient(object):
         self.server.join()
 
     def run_flask_server(self):
-        app = flask.Flask("CallbackServer")
-        app.secret_key = os.urandom(24)
-        app.use_reloader = False
-        app.debug = False
-        app.add_url_rule("/" + self.__redirect_endpoint, "callback", self.route_callback)
-        app.add_url_rule("/" + self.__token_granted_endpoint, "complete", self.route_token_granted)
-        app.run()
+        self.app = flask.Flask("CallbackServer")
+        self.app.secret_key = os.urandom(24)
+        self.app.use_reloader = False
+        self.app.debug = False
+        self.app.add_url_rule("/" + self.__redirect_endpoint, "callback", self.route_callback)
+        self.app.add_url_rule("/" + self.__token_granted_endpoint, "complete", self.route_token_granted)
+        self.app.run()
 
     def authorize(self):
         self.logger.info("Authorize called")
