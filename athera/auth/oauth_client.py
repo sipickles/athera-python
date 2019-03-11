@@ -72,7 +72,7 @@ class OAuthClient(object):
         os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = "1"
 
         self.queue = multiprocessing.Queue()
-        self.server = multiprocessing.Process(target=run_flask_server)
+        self.server = multiprocessing.Process(target=self.run_flask_server)
         self.server.start()
 
     def stop_callback_server(self):
