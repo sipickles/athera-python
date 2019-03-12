@@ -69,16 +69,10 @@ class OAuthClient(object):
         if self.server:
             return
 
-        self.app = flask.Flask("CallbackServer")
         os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = "1"
-        self.app.secret_key = os.urandom(24)
-        self.app.use_reloader = False
-        self.app.debug = False
-        self.app.add_url_rule("/" + self.__redirect_endpoint, "callback", self.route_callback)
-        self.app.add_url_rule("/" + self.__token_granted_endpoint, "complete", self.route_token_granted)
-                
+
         self.queue = multiprocessing.Queue()
-        self.server = multiprocessing.Process(target=self.app.run)
+        self.server = multiprocessing.Process(target=self.run_flask_server)
         self.server.start()
 
     def stop_callback_server(self):
@@ -88,6 +82,15 @@ class OAuthClient(object):
 
         self.server.terminate()
         self.server.join()
+
+    def run_flask_server(self):
+        self.app = flask.Flask("CallbackServer")
+        self.app.secret_key = os.urandom(24)
+        self.app.use_reloader = False
+        self.app.debug = False
+        self.app.add_url_rule("/" + self.__redirect_endpoint, "callback", self.route_callback)
+        self.app.add_url_rule("/" + self.__token_granted_endpoint, "complete", self.route_token_granted)
+        self.app.run()
 
     def authorize(self):
         self.logger.info("Authorize called")
