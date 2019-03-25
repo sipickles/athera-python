@@ -281,7 +281,7 @@ class ComputeTest(unittest.TestCase):
 
 
         # Wait until job status is CREATED
-        error_msg = self.wait_for_job_status(job_id, "CREATED")
+        error_msg = self.wait_for_job_status(job_id, ("CREATED", "PENDING", "COMPLETE") )
         self.assertIsNone(error_msg, error_msg)
         
         stop_job_attempts = 0
@@ -299,11 +299,11 @@ class ComputeTest(unittest.TestCase):
             stop_job_attempts += 1
             time.sleep(5)
         
-        # Wait until job status is ABORTED. This can take a while because if vm provisioning began, we have to wait for it to be READY to turn it off.
-        error_msg = self.wait_for_job_status(job_id, "CANCELED", 600)
+        # Wait until job status is CANCELED. This can take a while because if vm provisioning began, we have to wait for it to be READY to turn it off.
+        error_msg = self.wait_for_job_status(job_id, ("CANCELED"), 600)
         self.assertIsNone(error_msg, error_msg)
 
-    def wait_for_job_status(self, job_id, desired_status, timeout=60):
+    def wait_for_job_status(self, job_id, desired_statuses, timeout=60):
         job_status = ""
         wait_period = 10
 
@@ -322,7 +322,7 @@ class ComputeTest(unittest.TestCase):
             self.assertIn("id", job_data)
             self.assertEqual(job_id, job_data['id'])
             job_status = job_data['status'] 
-            if job_status == desired_status:
+            if job_status in desired_statuses:
                 return None
             
 
