@@ -99,7 +99,12 @@ class StorageTest(unittest.TestCase):
         """ Positive test - Rescans the entire driver """
         driver_id = environment.ATHERA_API_TEST_GROUP_DRIVER_ID
         status = self.get_driver_indexing_status(driver_id, environment.ATHERA_API_TEST_REGION)
-        self.assertEqual(status['indexingInProgress'], False)
+        
+        while True:
+            status = self.get_driver_indexing_status(driver_id, environment.ATHERA_API_TEST_REGION)
+            if not status['indexingInProgress']: 
+                break
+            time.sleep(5)
         
         response = storage.rescan_driver(
             environment.ATHERA_API_TEST_BASE_URL,
