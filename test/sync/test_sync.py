@@ -19,9 +19,7 @@ class SyncTest(unittest.TestCase):
         cls.client = Client(environment.ATHERA_API_TEST_REGION, cls.token)
 
     def test_get_mounts(self):
-        """ Test we can get groups for the authenticated user.
-        Will only work with Python 2. Python 3 will segfault - TODO check this still applies
-        """
+        """ Test we can get mounts for the authenticated user and provided group ID. """
         mounts, err = self.client.get_mounts(
             environment.ATHERA_API_TEST_GROUP_ID,
         )
@@ -29,33 +27,26 @@ class SyncTest(unittest.TestCase):
         self.assertIsNotNone(mounts, "Expected response not to be None")
         self.assertGreaterEqual(len(mounts), 2, "Expected to get at least 2 mounts")
 
-
     def test_get_files(self):
-        """ Test we can get files for the authenticated user.
-        Will only work with Python 2. Python 3 will segfault - TODO check this still applies
-        """
+        """ Test we can get files for the authenticated user, group and mount. """
         filesGenerator = self.client.get_files(
             environment.ATHERA_API_TEST_GROUP_ID,
-            environment.ATHERA_API_TEST_REMOTE_ASSETS_MOUNT_ID,
-            path=""
+            environment.ATHERA_API_TEST_GROUP_MOUNT_ID,
+            path="/"
             )
 
         for _, err in filesGenerator:
             self.assertIsNone(err, "Got unexpected error: {}".format(err))
 
-           
-
     def test_download(self):
-        """ Test we can get files for the authenticated user.
-        Will only work with Python 2. Python 3 will segfault - TODO check this still applies
-        """
+        """ Test we can download files for the authenticated user, group and mount. """
 
         files_to_download = []
 
         # List files in remote assets
         filesGenerator = self.client.get_files(
             environment.ATHERA_API_TEST_GROUP_ID,
-            environment.ATHERA_API_TEST_REMOTE_ASSETS_MOUNT_ID,
+            environment.ATHERA_API_TEST_GROUP_MOUNT_ID,
             path=environment.ATHERA_API_TEST_REMOTE_ASSETS_FOLDER
             )
 
@@ -63,13 +54,17 @@ class SyncTest(unittest.TestCase):
             self.assertIsNone(err, "Got unexpected error: {}".format(err))
             files_to_download.append(sirius_file)
 
+        try:
+            os.mkdir(environment.ATHERA_API_TEST_LOCAL_ASSETS_FOLDER)
+        except:
+            pass
 
         for sirius_file in files_to_download:
             download_path = os.path.join(environment.ATHERA_API_TEST_LOCAL_ASSETS_FOLDER, sirius_file.file.name)
             with open(download_path, "wb+") as f:
                 err = self.client.download_to_file(
                     environment.ATHERA_API_TEST_GROUP_ID,
-                    environment.ATHERA_API_TEST_REMOTE_ASSETS_MOUNT_ID,
+                    environment.ATHERA_API_TEST_GROUP_MOUNT_ID,
                     f,
                     path=sirius_file.file.path, 
                 )
@@ -78,15 +73,19 @@ class SyncTest(unittest.TestCase):
             self.assertEqual(
                 stats.st_size, 
                 sirius_file.file.size, 
-                "Expected downloaded file ({}) to contains 30 bytes; It contains instead {} bytes".format(environment.ATHERA_API_TEST_DONWLOAD_FILE_PATH, stats.st_size)
+                "{} - Mismatched size. Expected: {}B Actual {}B".format(sirius_file.file.name, sirius_file.file.size, stats.st_size)
             )
-           
 
     def test_download_file_with_folder_path(self):
         """ Negative Testing - Download a folder.
         The api call should return an error as the provided path is the one of a directory.
         """
-        download_path = "downloaded_file.txt"
+        try:
+            os.mkdir(environment.ATHERA_API_TEST_LOCAL_ASSETS_FOLDER)
+        except:
+            pass
+
+        download_path = "assets/empty.txt"
         with open(download_path, "wb+") as f:
             err = self.client.download_to_file(
                 environment.ATHERA_API_TEST_GROUP_ID,
@@ -102,12 +101,17 @@ class SyncTest(unittest.TestCase):
         Will only work with Python 2. Python 3 will segfault - TODO check this still applies
         """
         value_error_raised = False
-        download_path = os.path.join(environment.ATHERA_API_TEST_LOCAL_ASSETS_FOLDER, "dummy_name.txt")
+        try:
+            os.mkdir(environment.ATHERA_API_TEST_LOCAL_ASSETS_FOLDER)
+        except:
+            pass
+
+        download_path = os.path.join(environment.ATHERA_API_TEST_LOCAL_ASSETS_FOLDER, "empty2.txt")
         with open(download_path, "wb+") as f:
             try:
                 err = self.client.download_to_file(
                     environment.ATHERA_API_TEST_GROUP_ID,
-                    environment.ATHERA_API_TEST_REMOTE_ASSETS_MOUNT_ID,
+                    environment.ATHERA_API_TEST_GROUP_MOUNT_ID,
                     f,
                     path="/", 
                     chunk_size=1024*1024*1024
