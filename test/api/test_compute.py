@@ -326,5 +326,5 @@ class ComputeTest(unittest.TestCase):
                 return None
             
 
-        return "Waited 100 seconds for job to reach status {}, but job has status {}".format(desired_statuses, job_status)
+        return "Waited for job to reach status {}, but job has status {}".format(desired_statuses, job_status)
         

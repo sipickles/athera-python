@@ -22,7 +22,7 @@ class StorageTest(unittest.TestCase):
             environment.ATHERA_API_TEST_GROUP_ID,
             self.token,
         )
-        self.assertEqual(response.status_code, codes.ok)
+        response.raise_for_status()
         data = response.json()
         drivers = data['drivers'] 
         self.assertNotEqual(len(drivers), 0)
@@ -38,7 +38,7 @@ class StorageTest(unittest.TestCase):
             self.token,
             environment.ATHERA_API_TEST_GROUP_DRIVER_ID,
         )
-        self.assertEqual(response.status_code, codes.ok)
+        response.raise_for_status()
         driver = response.json()
         self.assertEqual(driver["type"], "GCS")
         statuses = driver["statuses"]
@@ -84,7 +84,7 @@ class StorageTest(unittest.TestCase):
             self.token,
             driver["id"],
         )
-        self.assertEqual(response.status_code, codes.ok)
+        response.raise_for_status()
         driver = response.json()
         self.assertEqual(driver["id"], new_driver_id)
         self.assertEqual(driver["name"], fake_name)
@@ -95,17 +95,26 @@ class StorageTest(unittest.TestCase):
         self.assertEqual(mount["type"], "MountTypeGroupCustom")
         self.assertEqual(mount["name"], fake_name)
 
+    def wait_for_indexing_to_finish(self, driver_id, timeout=600):
+        wait_period = 10
+
+        while timeout:   
+            status = self.get_driver_indexing_status(driver_id, environment.ATHERA_API_TEST_REGION)
+            if not status['indexingInProgress']: 
+                return True
+
+            time.sleep(wait_period)
+            timeout -= wait_period 
+
+        return False
+
     def test_rescan_driver_root(self):
         """ Positive test - Rescans the entire driver """
         driver_id = environment.ATHERA_API_TEST_GROUP_DRIVER_ID
         status = self.get_driver_indexing_status(driver_id, environment.ATHERA_API_TEST_REGION)
         
-        while True:
-            status = self.get_driver_indexing_status(driver_id, environment.ATHERA_API_TEST_REGION)
-            if not status['indexingInProgress']: 
-                break
-            time.sleep(5)
-        
+        self.assertTrue(self.wait_for_indexing_to_finish(driver_id))
+ 
         response = storage.rescan_driver(
             environment.ATHERA_API_TEST_BASE_URL,
             environment.ATHERA_API_TEST_GROUP_ID,
@@ -113,7 +122,7 @@ class StorageTest(unittest.TestCase):
             driver_id,
             "/"
         )
-        self.assertEqual(response.status_code, codes.ok)
+        response.raise_for_status()
         # Wait for rescan to finish and checks for rescan path to equals "/"
         timeout = 600
         interval = 2
@@ -132,11 +141,7 @@ class StorageTest(unittest.TestCase):
         """ Error test - Rescans request has wrong path argument """
         driver_id = environment.ATHERA_API_TEST_GROUP_DRIVER_ID
 
-        while True:
-            status = self.get_driver_indexing_status(driver_id, environment.ATHERA_API_TEST_REGION)
-            if not status['indexingInProgress']: 
-                break
-            time.sleep(5)
+        self.assertTrue(self.wait_for_indexing_to_finish(driver_id))
 
         response = storage.rescan_driver(
             environment.ATHERA_API_TEST_BASE_URL,
@@ -153,12 +158,8 @@ class StorageTest(unittest.TestCase):
     # def test_rescan_driver_subfolder(self):
     #     """ Positive test - Rescans a subfolder """
     #     driver_id = environment.ATHERA_API_TEST_GCP_DRIVER_ID
-
-    #     while True:
-    #         status = self.get_driver_indexing_status(driver_id, environment.ATHERA_API_TEST_REGION)
-    #         if not status['indexingInProgress']: 
-    #             break
-    #         time.sleep(5)
+  
+    #     self.assertTrue(self.wait_for_indexing_to_finish(driver_id))
 
     #     subfolder_choices = environment.ATHERA_API_TEST_GCP_DRIVER_SUBFOLDERS.split(" ")
     #     random_subfolder = random.choice(subfolder_choices)
@@ -171,7 +172,7 @@ class StorageTest(unittest.TestCase):
     #         driver_id,
     #         random_subfolder
     #     )
-    #     self.assertEqual(response.status_code, codes.ok)
+    #     response.raise_for_status()
     #     # Wait for rescan to finish and checks for rescan path to equals "/"
     #     timeout = 600
     #     interval = 2
@@ -198,7 +199,7 @@ class StorageTest(unittest.TestCase):
             self.token,
             driver_id,
         )
-        self.assertEqual(response.status_code, codes.ok)
+        response.raise_for_status()
 
 
     def get_driver_indexing_status(self, driver_id, region=None):
@@ -209,7 +210,7 @@ class StorageTest(unittest.TestCase):
             self.token,
             driver_id,
         )
-        self.assertEqual(response.status_code, codes.ok)
+        response.raise_for_status()
         data = response.json()
         self.assertEqual(data["type"], "GCS") # This is only guaranteed if using GROUP_DRIVER
         statuses = data["statuses"]
@@ -222,3 +223,96 @@ class StorageTest(unittest.TestCase):
 
         self.fail("Requested region not found")
     
+    def test_permissions(self):
+        """ TODO - test permission inheritance """
+        # Reset
+        response = storage.set_permissions(
+            environment.ATHERA_API_TEST_BASE_URL,
+            environment.ATHERA_API_TEST_GROUP_ID,
+            self.token,
+            environment.ATHERA_API_TEST_GROUP_MOUNT_ID,
+            [{'path': '/', 'access': 'RW'}]
+        )    
+        response.raise_for_status()
+        
+        # Get
+        response = storage.get_permissions(
+            environment.ATHERA_API_TEST_BASE_URL,
+            environment.ATHERA_API_TEST_GROUP_ID,
+            self.token,
+            environment.ATHERA_API_TEST_GROUP_MOUNT_ID,
+        )
+        response.raise_for_status()
+
+        initial_perms = response.json()['permissions']
+        self.assertEqual(len(initial_perms), 1)
+        self.assertEqual(initial_perms[0]['path'], "/")
+        self.assertEqual(initial_perms[0]['access'], "RW")
+        print(initial_perms)
+
+        # Set
+        path = "/perms_test/"
+        access = "NA"
+        new_perms = initial_perms + [{"path": path, "access": access}]
+        print(new_perms)
+
+        response = storage.set_permissions(
+            environment.ATHERA_API_TEST_BASE_URL,
+            environment.ATHERA_API_TEST_GROUP_ID,
+            self.token,
+            environment.ATHERA_API_TEST_GROUP_MOUNT_ID,
+            new_perms
+        )    
+        response.raise_for_status()
+            
+        # Test
+        mount_id = environment.ATHERA_API_TEST_GROUP_MOUNT_ID
+        response = storage.test_permissions(
+            environment.ATHERA_API_TEST_BASE_URL,
+            environment.ATHERA_API_TEST_GROUP_ID,
+            self.token,
+            environment.ATHERA_API_TEST_GROUP_MOUNT_ID,
+            [path]
+        )
+        response.raise_for_status()        
+        test_perms = response.json()['permissions']
+        print(test_perms)
+        self.assertEqual(len(test_perms), 2)
+        self.assertEqual(test_perms[0]['path'], path)
+        self.assertEqual(test_perms[0]['access'], access)
+
+        # Test Subfolder
+        path += "asterix/"
+        mount_id = environment.ATHERA_API_TEST_GROUP_MOUNT_ID
+        response = storage.test_permissions(
+            environment.ATHERA_API_TEST_BASE_URL,
+            environment.ATHERA_API_TEST_GROUP_ID,
+            self.token,
+            environment.ATHERA_API_TEST_GROUP_MOUNT_ID,
+            [path]
+        )
+        response.raise_for_status()        
+        test_perms = response.json()['permissions']
+        print(test_perms)
+        self.assertEqual(len(test_perms), 1)
+        self.assertEqual(test_perms[0]['path'], path)
+        self.assertEqual(test_perms[0]['access'], access)
+
+    def test_permissions_bad_path(self):
+        """ A non-existent path will return the perms for '/'. Its considered a virtual path with no rule to apply. """
+        path = "/no_such_path/"
+        mount_id = environment.ATHERA_API_TEST_GROUP_MOUNT_ID
+        response = storage.test_permissions(
+            environment.ATHERA_API_TEST_BASE_URL,
+            environment.ATHERA_API_TEST_GROUP_ID,
+            self.token,
+            environment.ATHERA_API_TEST_GROUP_MOUNT_ID,
+            [path]
+        )
+        response.raise_for_status()        
+        test_perms = response.json()['permissions']
+        print(test_perms)
+        self.assertEqual(len(test_perms), 1)
+        self.assertEqual(test_perms[0]['path'], path)
+        self.assertEqual(test_perms[0]['access'], "RW")
+
