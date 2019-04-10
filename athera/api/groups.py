@@ -1,10 +1,12 @@
 import requests
 from athera.api.common import headers, api_debug
 
-route_orgs           = "/orgs"
-route_group          = "/groups/{group_id}"
-route_group_children = "/groups/{group_id}/children"
-route_group_users    = "/groups/{group_id}/users"
+route_orgs            = "/orgs"
+route_group           = "/groups/{group_id}"
+route_group_children  = "/groups/{group_id}/children"
+route_group_users     = "/groups/{group_id}/users"
+# TODO CHANGE TO /whitelist
+route_group_whitelist = "/groups/{group_id}/global-whitelisted-endpoints" 
 
 
 @api_debug
@@ -55,4 +57,26 @@ def get_group_users(base_url, group_id, token, target_group_id=None):
     target = target_group_id if target_group_id else group_id
     url = base_url + route_group_users.format(group_id=target)
     response = requests.get(url, headers=headers(group_id, token))
+    return response
+
+@api_debug
+def get_whitelist(base_url, group_id, token):
+    """
+    List whitelisted endpoints associated with the group and all parent groups. 
+    Endpoints are returned as a dictionary where keys represent group_id.
+    Response: [403 Forbidden] Incorrect or inaccessible group_id
+    """
+    url = base_url + route_group_whitelist.format(group_id=group_id)
+    response = requests.get(url, headers=headers(group_id, token))
+    return response
+
+@api_debug
+def set_whitelist(base_url, group_id, token, whitelist_dict):
+    """
+    Update whitelist endpoints for a group. Any existing endpoints are overwritten.
+    Response: [400 Bad Request] The group_id is malformed, or a payload is incorrect.
+    Response: [403 Forbidden] Incorrect or inaccessible group_id
+    """
+    url = base_url + route_group_whitelist.format(group_id=group_id)
+    response = requests.put(url, headers=headers(group_id, token), json=whitelist_dict)
     return response
