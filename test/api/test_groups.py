@@ -144,3 +144,106 @@ class GroupsTest(unittest.TestCase):
             environment.ATHERA_API_TEST_OTHER_GROUP_ID,
         )
         self.assertEqual(response.status_code, codes.not_found)
+
+    def test_get_set_whitelist(self):
+        """ Positive test """
+
+        url_list = ["httpstat.us",]
+
+        response = groups.set_whitelist(
+            environment.ATHERA_API_TEST_BASE_URL,
+            environment.ATHERA_API_TEST_GROUP_ID,
+            self.token,
+            url_list,
+        )
+        self.assertEqual(response.status_code, codes.ok)
+        
+        response = groups.get_whitelist(
+            environment.ATHERA_API_TEST_BASE_URL,
+            environment.ATHERA_API_TEST_GROUP_ID,
+            self.token,
+        )       
+        self.assertEqual(response.status_code, codes.ok)
+        
+        data = response.json()
+
+        returned_whitelist = data['endpoints'] 
+        first_endpoint = returned_whitelist[environment.ATHERA_API_TEST_GROUP_ID]['endpoints'][0]
+        self.assertIn("endpoint", first_endpoint)
+        self.assertEqual(first_endpoint["endpoint"], url_list[0])
+
+    def test_set_whitelist_bad_group(self):
+        """ Negative test - Should not be able to set on an unowned group """
+
+        url_list = ["httpstat.us",]
+
+        response = groups.set_whitelist(
+            environment.ATHERA_API_TEST_BASE_URL,
+            environment.ATHERA_API_TEST_OTHER_GROUP_ID,
+            self.token,
+            url_list,
+        )
+        self.assertEqual(response.status_code, codes.forbidden)
+        
+    def test_set_whitelist_bad_payload(self):
+        """ Negative test - Check weird payloads are rejected """
+
+        # Junk - list of lists is not allowed!
+        url_list = [["httpstat.us",],]
+
+        response = groups.set_whitelist(
+            environment.ATHERA_API_TEST_BASE_URL,
+            environment.ATHERA_API_TEST_GROUP_ID,
+            self.token,
+            url_list,
+        )
+        self.assertEqual(response.status_code, codes.bad_request)
+        
+    def test_set_whitelist_empty_payload(self):
+        """ Positive test - Check empty payload clears whitelist """
+    
+        # First set a whitelisted url
+        url_list = ["httpstat.us",]
+
+        response = groups.set_whitelist(
+            environment.ATHERA_API_TEST_BASE_URL,
+            environment.ATHERA_API_TEST_GROUP_ID,
+            self.token,
+            url_list,
+        )
+        self.assertEqual(response.status_code, codes.ok)
+        
+        response = groups.get_whitelist(
+            environment.ATHERA_API_TEST_BASE_URL,
+            environment.ATHERA_API_TEST_GROUP_ID,
+            self.token,
+        )       
+        self.assertEqual(response.status_code, codes.ok)
+        
+        data = response.json()
+
+        returned_whitelist = data['endpoints'] 
+        first_endpoint = returned_whitelist[environment.ATHERA_API_TEST_GROUP_ID]['endpoints'][0]
+
+        # Now clear whitelisted url
+        url_list = []
+
+        response = groups.set_whitelist(
+            environment.ATHERA_API_TEST_BASE_URL,
+            environment.ATHERA_API_TEST_GROUP_ID,
+            self.token,
+            url_list,
+        )
+        self.assertEqual(response.status_code, codes.ok)
+        
+        response = groups.get_whitelist(
+            environment.ATHERA_API_TEST_BASE_URL,
+            environment.ATHERA_API_TEST_GROUP_ID,
+            self.token,
+        )       
+        self.assertEqual(response.status_code, codes.ok)
+        
+        data = response.json()
+
+        returned_whitelist = data['endpoints'] 
+        self.assertEqual(len(returned_whitelist[environment.ATHERA_API_TEST_GROUP_ID]['endpoints']), 0)

@@ -5,8 +5,7 @@ route_orgs            = "/orgs"
 route_group           = "/groups/{group_id}"
 route_group_children  = "/groups/{group_id}/children"
 route_group_users     = "/groups/{group_id}/users"
-# TODO CHANGE TO /whitelist
-route_group_whitelist = "/groups/{group_id}/global-whitelisted-endpoints" 
+route_group_whitelist = "/groups/{group_id}/whitelist" 
 
 
 @api_debug
@@ -65,18 +64,64 @@ def get_whitelist(base_url, group_id, token):
     List whitelisted endpoints associated with the group and all parent groups. 
     Endpoints are returned as a dictionary where keys represent group_id.
     Response: [403 Forbidden] Incorrect or inaccessible group_id
+    Response: [200 OK] Returns a dict with this structure. Note that a group can inherit whitelisted URLs from parent groups:
+
+    {
+        'groupID': '<group_id of whitelist context, eg project context>', 
+        'endpoints': {
+            '<project group_id>': {
+                'endpoints': [
+                    {
+                        'endpoint': '<whitelisted url set in project context>', 
+                        'endpointType': 'HOSTNAME'
+                    }
+                ]
+            },
+            '<org group_id>': {
+                'endpoints': [
+                    {
+                        'endpoint': '<whitelisted url #1 set in org context>', 
+                        'endpointType': 'HOSTNAME'
+                    },
+                    {
+                        'endpoint': '<whitelisted url #2 set in org context>', 
+                        'endpointType': 'HOSTNAME'
+                    }
+                ]
+            },
+        }
+    }
+
     """
     url = base_url + route_group_whitelist.format(group_id=group_id)
     response = requests.get(url, headers=headers(group_id, token))
     return response
 
 @api_debug
-def set_whitelist(base_url, group_id, token, whitelist_dict):
+def set_whitelist(base_url, group_id, token, url_list):
     """
     Update whitelist endpoints for a group. Any existing endpoints are overwritten.
+
+    url_list is a list of strings of urls, eg ["google.com", "httpstat.us"]. Don't provide the schema ('https://'). 
+
+    https will be assumed as its the only schema supported.
+
     Response: [400 Bad Request] The group_id is malformed, or a payload is incorrect.
     Response: [403 Forbidden] Incorrect or inaccessible group_id
     """
     url = base_url + route_group_whitelist.format(group_id=group_id)
-    response = requests.put(url, headers=headers(group_id, token), json=whitelist_dict)
+    whitelist = whitelist_dict_from_urls(url_list)
+    response = requests.put(url, headers=headers(group_id, token), json=whitelist)
     return response
+
+def whitelist_dict_from_urls(url_list):
+    """
+    Helper function to generate the payload expected during a whitelist set operation.
+
+    Since this is called from set_whitelist, you're unlikely to need to use it directly, just pass set_whitelist a list of strings
+    """
+    endpoints = []
+    for url in url_list:
+        endpoints.append({"endpoint": url, "endpoint_type": "HOSTNAME"})
+            
+    return {"endpoints": endpoints}
